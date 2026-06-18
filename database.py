@@ -6,7 +6,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./workouts.db")
+# Vercel 서버리스 환경에서는 /tmp만 쓰기 가능
+_IS_VERCEL = bool(os.getenv("VERCEL"))
+_default_db = "sqlite:////tmp/workouts.db" if _IS_VERCEL else "sqlite:///./workouts.db"
+DATABASE_URL = os.getenv("DATABASE_URL", _default_db)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 

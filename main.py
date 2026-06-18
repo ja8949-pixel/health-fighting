@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -21,16 +21,31 @@ load_dotenv()
 app = FastAPI(title="운동 기록 앱")
 
 BASE_DIR = Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / "static" / "uploads"
+IS_VERCEL = bool(os.getenv("VERCEL"))
+
+# Vercel은 /tmp만 쓰기 가능. 로컬은 static/uploads 사용
+UPLOAD_DIR = Path("/tmp/uploads") if IS_VERCEL else BASE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# 로컬 개발용 static 마운트 (Vercel에서는 /api/uploads/ 엔드포인트로 대체)
+if not IS_VERCEL:
+    app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @app.on_event("startup")
 def startup():
     create_tables()
+
+
+# ── 업로드 파일 서빙 (Vercel /tmp + 로컬 static/uploads 양쪽 지원) ───────────
+@app.get("/api/uploads/{filename}")
+async def serve_upload(filename: str):
+    path = UPLOAD_DIR / filename
+    if not path.exists():
+        raise HTTPException(404, "파일을 찾을 수 없습니다.")
+    return FileResponse(path)
 
 
 # ── 메인 페이지 ───────────────────────────────────────────────────────────────
@@ -165,7 +180,8 @@ async def create_workout(
         filename = f"{uuid.uuid4().hex}{ext}"
         with open(UPLOAD_DIR / filename, "wb") as f:
             f.write(content)
-        photo_url = f"/static/uploads/{filename}"
+        # /api/uploads/ 경로로 통일 (Vercel + 로컬 모두 동작)
+        photo_url = f"/api/uploads/{filename}"
 
     workout = Workout(
         user_id=user_id,
@@ -205,7 +221,8 @@ def delete_workout(workout_id: int, user_id: int, db: Session = Depends(get_db))
     if not workout:
         raise HTTPException(404, "기록을 찾을 수 없습니다.")
     if workout.photo_url:
-        photo_path = BASE_DIR / workout.photo_url.lstrip("/")
+        # URL에서 파일명만 추출해 UPLOAD_DIR 기준으로 삭제
+        photo_path = UPLOAD_DIR / Path(workout.photo_url).name
         if photo_path.exists():
             photo_path.unlink()
     db.delete(workout)
