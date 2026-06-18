@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
-from database import get_db, create_tables, Workout, WorkoutDetail, User
+from database import get_db, create_tables, Workout, WorkoutDetail, User, IS_POSTGRES, DATABASE_URL
 from workout_parser import parse_full_input, MUSCLE_META
 
 load_dotenv()
@@ -54,32 +54,55 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-# ── 로그인 (간소화 - 이름 + 생년월일 + 전화번호 뒷 4자리) ─────────────────────
+# ── DB 상태 확인 (디버깅용) ───────────────────────────────────────────────────
+@app.get("/api/dbstatus")
+def db_status(db: Session = Depends(get_db)):
+    try:
+        user_cnt = db.query(User).count()
+        workout_cnt = db.query(Workout).count()
+        db_type = "PostgreSQL (영구저장 ✅)" if IS_POSTGRES else "SQLite"
+        location = "외부 DB" if IS_POSTGRES else ("/tmp (임시⚠️)" if IS_VERCEL else "로컬 파일 (영구저장 ✅)")
+        return {
+            "db_type": db_type,
+            "location": location,
+            "is_persistent": IS_POSTGRES or (not IS_VERCEL),
+            "users": user_cnt,
+            "workouts": workout_cnt,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── 로그인 (이름 + 비밀번호 4자리) ──────────────────────────────────────────────
 @app.post("/api/login")
 async def login(
     name: str = Form(...),
-    birth_date: str = Form(...),
-    phone4: str = Form(...),
+    password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    if len(phone4) != 4 or not phone4.isdigit():
-        raise HTTPException(400, "전화번호 뒷 4자리를 정확히 입력해 주세요.")
-    if not name.strip():
+    name = name.strip()
+    if not name:
         raise HTTPException(400, "이름을 입력해 주세요.")
+    if not password.isdigit() or len(password) != 4:
+        raise HTTPException(400, "비밀번호는 숫자 4자리를 입력해 주세요.")
 
     user = db.query(User).filter(
-        User.name == name.strip(),
-        User.birth_date == birth_date,
-        User.phone4 == phone4,
+        User.name == name,
+        User.password == password,
     ).first()
 
     if not user:
-        user = User(name=name.strip(), birth_date=birth_date, phone4=phone4)
+        # 같은 이름의 다른 비밀번호 사용자가 있는지 확인
+        existing = db.query(User).filter(User.name == name).first()
+        if existing:
+            raise HTTPException(401, "비밀번호가 틀렸어요.")
+        # 신규 사용자 생성
+        user = User(name=name, password=password)
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    return {"user_id": user.id, "name": user.name, "message": "ok"}
+    return {"user_id": user.id, "name": user.name, "is_new": False, "message": "ok"}
 
 
 # ── 파싱 미리보기 ─────────────────────────────────────────────────────────────
