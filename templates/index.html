@@ -792,14 +792,27 @@ async function checkDbStatus() {
     const res = await fetch('/api/dbstatus');
     const data = await res.json();
     if (!data.is_persistent) {
-      // Vercel + SQLite /tmp → 경고 배너 표시
+      const existing = document.getElementById('db-warn-banner');
+      if (existing) return;
       const banner = document.createElement('div');
       banner.id = 'db-warn-banner';
-      banner.style.cssText = 'background:rgba(255,180,0,.15);border:1px solid rgba(255,180,0,.4);border-radius:14px;padding:10px 14px;margin-bottom:14px;font-size:.75rem;color:#a07000;line-height:1.6;';
-      banner.innerHTML = `⚠️ <b>임시 저장 모드</b>: 서버가 재시작되면 데이터가 초기화될 수 있습니다.<br>영구 저장을 원하면 Vercel에 <code>DATABASE_URL</code> (Neon 무료 PostgreSQL)을 설정하세요.`;
+      banner.style.cssText = `
+        background:rgba(255,80,80,.08);border:1.5px solid rgba(255,80,80,.3);
+        border-radius:16px;padding:14px 16px;margin-bottom:16px;line-height:1.7;`;
+      banner.innerHTML = `
+        <div style="font-weight:700;font-size:.82rem;color:#c0392b;margin-bottom:8px">
+          ⚠️ 데이터가 사라지고 있어요!
+        </div>
+        <div style="font-size:.75rem;color:var(--sub)">
+          Vercel은 서버가 재시작될 때마다 DB가 초기화됩니다.<br>
+          <b style="color:var(--txt)">영구 저장 방법 (무료, 2분)</b><br>
+          1. <a href="https://neon.tech" target="_blank" style="color:var(--a2)">neon.tech</a> 가입 → New Project → DB 생성<br>
+          2. Connection String 복사 (postgresql://...)<br>
+          3. Vercel → Settings → Environment Variables → <code>DATABASE_URL</code> 추가<br>
+          4. Vercel 재배포 → 완료!
+        </div>`;
       const main = document.querySelector('main');
-      const existing = document.getElementById('db-warn-banner');
-      if (!existing && main) main.prepend(banner);
+      if (main) main.prepend(banner);
     }
   } catch(e) {}
 }

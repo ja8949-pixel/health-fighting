@@ -93,6 +93,17 @@ def create_tables():
             except Exception:
                 pass
 
+        # ── 고아 기록(user_id NULL) → 첫 번째 유저에 연결 ───────────────────
+        try:
+            first_user = conn.execute(text("SELECT id FROM users ORDER BY id LIMIT 1")).fetchone()
+            if first_user:
+                conn.execute(text(
+                    "UPDATE workouts SET user_id=:uid WHERE user_id IS NULL"
+                ), {"uid": first_user[0]})
+                conn.commit()
+        except Exception:
+            pass
+
 
 def _migrate_users(conn):
     """users 테이블을 name+password 스키마로 마이그레이션"""
