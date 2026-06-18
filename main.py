@@ -23,13 +23,12 @@ app = FastAPI(title="운동 기록 앱")
 BASE_DIR = Path(__file__).parent
 IS_VERCEL = bool(os.getenv("VERCEL"))
 
-# Vercel은 /tmp만 쓰기 가능. 로컬은 static/uploads 사용
+# Vercel은 /tmp만 쓰기 가능 (업로드 파일). 정적 에셋(mascot.png 등)은 배포 패키지에 포함됨
 UPLOAD_DIR = Path("/tmp/uploads") if IS_VERCEL else BASE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# 로컬 개발용 static 마운트 (Vercel에서는 /api/uploads/ 엔드포인트로 대체)
-if not IS_VERCEL:
-    app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# static 디렉토리 항상 마운트 (mascot.png 등 정적 에셋은 Vercel 배포 패키지에 포함)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
