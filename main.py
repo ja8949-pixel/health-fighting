@@ -1,0 +1,219 @@
+"""운동 기록 앱 - FastAPI 백엔드"""
+
+import os
+import uuid
+from datetime import date as _date
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+
+from database import get_db, create_tables, Workout, WorkoutDetail, User
+from workout_parser import parse_full_input, MUSCLE_META
+
+load_dotenv()
+
+app = FastAPI(title="운동 기록 앱")
+
+BASE_DIR = Path(__file__).parent
+UPLOAD_DIR = BASE_DIR / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+@app.on_event("startup")
+def startup():
+    create_tables()
+
+
+# ── 메인 페이지 ───────────────────────────────────────────────────────────────
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+# ── 로그인 (간소화 - 이름 + 생년월일 + 전화번호 뒷 4자리) ─────────────────────
+@app.post("/api/login")
+async def login(
+    name: str = Form(...),
+    birth_date: str = Form(...),
+    phone4: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    if len(phone4) != 4 or not phone4.isdigit():
+        raise HTTPException(400, "전화번호 뒷 4자리를 정확히 입력해 주세요.")
+    if not name.strip():
+        raise HTTPException(400, "이름을 입력해 주세요.")
+
+    user = db.query(User).filter(
+        User.name == name.strip(),
+        User.birth_date == birth_date,
+        User.phone4 == phone4,
+    ).first()
+
+    if not user:
+        user = User(name=name.strip(), birth_date=birth_date, phone4=phone4)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    return {"user_id": user.id, "name": user.name, "message": "ok"}
+
+
+# ── 파싱 미리보기 ─────────────────────────────────────────────────────────────
+@app.post("/api/parse-preview")
+async def parse_preview(request: Request):
+    body = await request.json()
+    text = body.get("text", "")
+    override_date = body.get("date")
+    override_hours = body.get("hours")
+    override_minutes = body.get("minutes")
+
+    parsed = parse_full_input(text) if text.strip() else {
+        "raw_text": "", "exercises": [], "date": "", "total_minutes": None, "total_time_str": ""
+    }
+    if override_date:
+        parsed["date"] = override_date
+    total = (override_hours or 0) * 60 + (override_minutes or 0)
+    if total > 0:
+        parsed["total_minutes"] = total
+        h, m = override_hours or 0, override_minutes or 0
+        parsed["total_time_str"] = f"{h}h {m}m" if h and m else (f"{h}h" if h else f"{m}m")
+
+    return parsed
+
+
+# ── 운동 기록 목록 ─────────────────────────────────────────────────────────────
+@app.get("/api/workouts")
+def list_workouts(user_id: int, db: Session = Depends(get_db)):
+    workouts = (
+        db.query(Workout)
+        .filter(Workout.user_id == user_id)
+        .order_by(Workout.date.desc(), Workout.created_at.desc())
+        .all()
+    )
+    result = []
+    for w in workouts:
+        details = sorted(w.details, key=lambda x: x.order_index)
+        result.append({
+            "id": w.id,
+            "date": w.date,
+            "total_minutes": w.total_minutes,
+            "total_time_str": w.total_time_str,
+            "photo_url": w.photo_url,
+            "raw_text": w.raw_text,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+            "details": [
+                {
+                    "id": d.id,
+                    "exercise_name": d.exercise_name,
+                    "sets": d.sets,
+                    "duration": d.duration,
+                    "exercise_type": d.exercise_type,
+                    "muscle_group": d.muscle_group or "기타",
+                    "target_detail": d.target_detail or "",
+                    "order_index": d.order_index,
+                }
+                for d in details
+            ],
+        })
+    return result
+
+
+# ── 운동 기록 생성 ─────────────────────────────────────────────────────────────
+@app.post("/api/workouts")
+async def create_workout(
+    text: str = Form(""),
+    user_id: int = Form(...),
+    workout_date: Optional[str] = Form(None),
+    hours: Optional[int] = Form(None),
+    mins: Optional[int] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    # 사용자 존재 확인
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+
+    parsed = parse_full_input(text)
+    if workout_date:
+        parsed["date"] = workout_date
+    total = (hours or 0) * 60 + (mins or 0)
+    if total > 0:
+        parsed["total_minutes"] = total
+        h, m = hours or 0, mins or 0
+        parsed["total_time_str"] = f"{h}h {m}m" if h and m else (f"{h}h" if h else f"{m}m")
+    if not parsed.get("date"):
+        parsed["date"] = str(_date.today())
+
+    photo_url = None
+    if photo and photo.filename:
+        ext = Path(photo.filename).suffix.lower()
+        if ext not in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"}:
+            raise HTTPException(400, "지원하지 않는 파일 형식입니다.")
+        content = await photo.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(400, "파일 크기는 10MB 이하여야 합니다.")
+        filename = f"{uuid.uuid4().hex}{ext}"
+        with open(UPLOAD_DIR / filename, "wb") as f:
+            f.write(content)
+        photo_url = f"/static/uploads/{filename}"
+
+    workout = Workout(
+        user_id=user_id,
+        date=parsed["date"],
+        total_minutes=parsed.get("total_minutes"),
+        total_time_str=parsed.get("total_time_str", ""),
+        photo_url=photo_url,
+        raw_text=text,
+    )
+    db.add(workout)
+    db.flush()
+
+    for idx, ex in enumerate(parsed.get("exercises", [])):
+        db.add(WorkoutDetail(
+            workout_id=workout.id,
+            exercise_name=ex["exercise_name"],
+            sets=ex.get("sets"),
+            duration=ex.get("duration"),
+            exercise_type=ex.get("type", "weight"),
+            muscle_group=ex.get("muscle_group", "기타"),
+            target_detail=ex.get("target_detail", ""),
+            order_index=idx,
+        ))
+
+    db.commit()
+    db.refresh(workout)
+    return {"id": workout.id, "date": workout.date, "message": "저장 완료"}
+
+
+# ── 운동 기록 삭제 ─────────────────────────────────────────────────────────────
+@app.delete("/api/workouts/{workout_id}")
+def delete_workout(workout_id: int, user_id: int, db: Session = Depends(get_db)):
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == user_id,
+    ).first()
+    if not workout:
+        raise HTTPException(404, "기록을 찾을 수 없습니다.")
+    if workout.photo_url:
+        photo_path = BASE_DIR / workout.photo_url.lstrip("/")
+        if photo_path.exists():
+            photo_path.unlink()
+    db.delete(workout)
+    db.commit()
+    return {"message": "삭제 완료"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
