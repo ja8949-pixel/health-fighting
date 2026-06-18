@@ -92,30 +92,65 @@ body{font-family:'Noto Sans KR',sans-serif;min-height:100vh;
 
 /* ── 헤더 ── */
 header{position:sticky;top:0;z-index:40;background:var(--hdr);backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);padding:10px 16px;
-  display:flex;align-items:center;justify-content:space-between;}
-.logo{display:flex;align-items:center;gap:8px;}
-.logotxt{font-family:'Gaegu',cursive;font-size:1.35rem;font-weight:700;
+  border-bottom:1px solid var(--border);padding:8px 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:52px;}
+.logo{display:flex;align-items:center;gap:6px;flex-shrink:0;min-width:0;}
+.logo-icon{font-size:1.4rem;flex-shrink:0;}
+.logotxt{font-family:'Gaegu',cursive;font-size:1.15rem;font-weight:700;white-space:nowrap;
   background:linear-gradient(90deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.hdrbts{display:flex;align-items:center;gap:8px;}
-.btnrec{display:flex;align-items:center;gap:6px;
-  background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;font-weight:700;font-size:.85rem;
-  padding:8px 16px;border-radius:999px;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,157,.3);transition:transform .15s;}
+/* 320px 이하 극소형 화면 */
+@media(max-width:360px){.logotxt{font-size:.95rem;}.logo-icon{font-size:1.2rem;}}
+.hdrbts{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.btnrec{display:flex;align-items:center;gap:4px;
+  background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;font-weight:700;font-size:.78rem;
+  padding:7px 12px;border-radius:999px;border:none;cursor:pointer;
+  box-shadow:0 4px 16px rgba(255,107,157,.3);transition:transform .15s;white-space:nowrap;}
 .btnrec:active{transform:scale(.95)}
-.btntheme{background:var(--card);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;box-shadow:var(--shadow);transition:transform .2s;}
+/* 매우 좁은 화면에서 텍스트 숨기고 아이콘만 */
+@media(max-width:380px){.btnrec-txt{display:none;}.btnrec{padding:8px 10px;}}
+.btntheme{background:var(--card);border:1px solid var(--border);border-radius:50%;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;
+  box-shadow:var(--shadow);transition:transform .2s;flex-shrink:0;}
 .btntheme:active{transform:scale(.88) rotate(30deg)}
 
 /* 세션 타이머 */
-.session-timer{display:flex;align-items:center;gap:5px;background:var(--inp);border:1px solid var(--inpb);
-  border-radius:999px;padding:4px 10px;font-size:.72rem;font-weight:700;color:var(--sub);cursor:default;}
-.timer-dot{width:7px;height:7px;background:var(--a3);border-radius:50%;animation:blink 1.5s ease-in-out infinite;}
+.session-timer{display:flex;align-items:center;gap:4px;background:var(--inp);border:1px solid var(--inpb);
+  border-radius:999px;padding:3px 8px;font-size:.68rem;font-weight:700;color:var(--sub);cursor:default;white-space:nowrap;}
+.timer-dot{width:6px;height:6px;background:var(--a3);border-radius:50%;animation:blink 1.5s ease-in-out infinite;flex-shrink:0;}
 .timer-warn{border-color:rgba(255,80,80,.5)!important;color:rgba(255,80,80,.8)!important;}
 .timer-dot-warn{background:rgba(255,80,80,.8)!important;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── 메인 ── */
 main{max-width:480px;margin:0 auto;padding:16px 16px 160px;position:relative;z-index:10;}
+
+/* ── 헐랭이 마스코트 ── */
+.mascot-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:18px;position:relative;cursor:pointer;user-select:none;}
+.mascot-img{width:110px;height:110px;object-fit:contain;
+  animation:mascotFloat 3s ease-in-out infinite;
+  filter:drop-shadow(0 6px 12px rgba(100,80,180,.18));
+  transition:transform .15s;}
+.mascot-wrap:active .mascot-img{transform:scale(1.18) rotate(-5deg);}
+@keyframes mascotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.mascot-bubble{
+  background:var(--card);border:2px solid var(--border);border-radius:16px;
+  padding:7px 14px;font-family:'Gaegu',cursive;font-size:.95rem;font-weight:700;color:var(--txt);
+  margin-bottom:8px;position:relative;box-shadow:var(--shadow);
+  animation:mascotFloat 3s ease-in-out infinite;animation-delay:.4s;}
+.mascot-bubble::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:8px solid transparent;border-top-color:var(--border);}
+.mascot-bubble::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%) translateY(-2px);
+  border:8px solid transparent;border-top-color:var(--card);z-index:1;}
+.mascot-tap-hint{font-size:.62rem;color:var(--sub);margin-top:6px;opacity:.7;}
+
+/* 헐랭이 클릭 리액션 */
+.mascot-react{
+  position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  font-family:'Gaegu',cursive;font-size:1rem;font-weight:700;
+  background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;
+  border-radius:999px;padding:4px 12px;white-space:nowrap;pointer-events:none;
+  animation:reactPop .25s cubic-bezier(.16,1,.3,1) forwards;}
+@keyframes reactPop{from{opacity:0;transform:translateX(-50%) scale(.5) translateY(12px)}to{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}}
 
 /* ── 명언 카드 ── */
 .quote-card{background:linear-gradient(135deg,rgba(255,107,157,.08),rgba(79,195,247,.10));
@@ -336,8 +371,9 @@ textarea:focus{outline:none;border-color:var(--a2);}textarea::placeholder{color:
 
 /* 로그아웃 버튼 */
 .btn-logout{background:none;border:1px solid var(--border);border-radius:10px;
-  padding:4px 10px;font-size:.7rem;color:var(--sub);cursor:pointer;transition:all .15s;}
+  padding:4px 8px;font-size:.68rem;color:var(--sub);cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
 .btn-logout:hover{color:rgba(255,80,80,.8);border-color:rgba(255,80,80,.3);}
+@media(max-width:380px){.btn-logout{display:none!important;}}
 
 /* ── 토스트 ── */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:100;display:none;}
@@ -367,22 +403,58 @@ textarea:focus{outline:none;border-color:var(--a2);}textarea::placeholder{color:
 <!-- 헤더 -->
 <header>
   <div class="logo">
-    <span style="font-size:1.6rem">🏋️</span>
-    <span class="logotxt">운동 기록</span>
+    <span class="logo-icon">🏋️</span>
+    <span class="logotxt">운동기록</span>
   </div>
   <div class="hdrbts" id="hdr-right">
     <div class="session-timer" id="session-timer" style="display:none">
       <span class="timer-dot" id="timer-dot"></span>
       <span id="timer-display">3:00</span>
     </div>
-    <button class="btn-logout" id="btn-logout" style="display:none" onclick="logout()">로그아웃</button>
+    <button class="btn-logout" id="btn-logout" style="display:none" onclick="logout()">나가기</button>
     <button class="btntheme" id="theme-btn" onclick="toggleTheme()">☀️</button>
-    <button class="btnrec" id="btn-record" style="display:none" onclick="openModal()">＋ 기록하기</button>
+    <button class="btnrec" id="btn-record" style="display:none" onclick="openModal()">＋ <span class="btnrec-txt">기록</span></button>
   </div>
 </header>
 
 <!-- 메인 -->
 <main>
+  <!-- 헐랭이 마스코트 -->
+  <div class="mascot-wrap" id="mascot-wrap" onclick="mascotClick()">
+    <div class="mascot-bubble" id="mascot-bubble">ㅋ~ 오늘도 화이팅!</div>
+    <img
+      id="mascot-img"
+      class="mascot-img"
+      src="/static/mascot.png"
+      alt="헐랭이"
+      onerror="this.style.display='none';document.getElementById('mascot-fallback').style.display='block'"
+    />
+    <!-- 이미지 없을 때 SVG 대체 캐릭터 -->
+    <div id="mascot-fallback" style="display:none;width:110px;height:110px;">
+      <svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg" width="110" height="110">
+        <!-- 몸통 blob -->
+        <path d="M22,60 Q18,30 60,26 Q102,30 98,60 Q100,108 60,112 Q20,108 22,60 Z" fill="#c8c8c8"/>
+        <!-- 왼쪽 귀 돌기 -->
+        <ellipse cx="30" cy="34" rx="10" ry="14" fill="#c8c8c8" transform="rotate(-25,30,34)"/>
+        <!-- 눈 -->
+        <circle cx="46" cy="60" r="4" fill="#555"/>
+        <circle cx="74" cy="60" r="4" fill="#555"/>
+        <!-- 하이라이트 -->
+        <circle cx="48" cy="57" r="1.5" fill="white"/>
+        <circle cx="76" cy="57" r="1.5" fill="white"/>
+        <!-- 입 -->
+        <path d="M50,74 Q60,80 70,74" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- 하트 -->
+        <path d="M55,90 C55,86 60,86 60,90 C60,86 65,86 65,90 C65,95 60,100 60,100 C60,100 55,95 55,90Z" fill="#ffaacc"/>
+        <!-- 엄지척 오른팔 -->
+        <ellipse cx="103" cy="72" rx="9" ry="14" fill="#c8c8c8" transform="rotate(15,103,72)"/>
+        <ellipse cx="107" cy="60" rx="7" ry="11" fill="#c8c8c8" transform="rotate(5,107,60)"/>
+        <ellipse cx="100" cy="52" rx="5" ry="8" fill="#c8c8c8" transform="rotate(-20,100,52)"/>
+      </svg>
+    </div>
+    <div class="mascot-tap-hint">탭하면 반응해요 👆</div>
+  </div>
+
   <div class="quote-card" id="quote-card">
     <div class="qcat" id="q-cat">오늘의 동기부여</div>
     <div class="qdate" id="q-date"></div>
@@ -688,6 +760,45 @@ async function doLogin() {
     btn.disabled = false; btn.textContent = '🚀 시작하기!';
   }
 }
+
+// ── 헐랭이 마스코트 클릭 ──────────────────────────────────────────────────────
+const MASCOT_MSGS = [
+  "ㅋ~ 오늘도 화이팅!","운동 갔다 왔어?? 👍","대단하다 진짜!!","오늘도 멋있었어 💪",
+  "쉬는 날도 기록!","근육이 자라고 있어!","헐~ 대박이다","파이팅!!!!!",
+  "내일은 더 세지는 거야","ㅋㅋㅋ 잘하고 있어","오운완 축하해! 🎉","역시 너야~",
+  "오늘 뭐했어? 빨리 기록해!","헐랭이가 응원해 👻","존버하면 이긴다!!",
+];
+let mascotMsgIdx = 0;
+let mascotTimer = null;
+function mascotClick() {
+  clearTimeout(mascotTimer);
+  // 기존 리액션 제거
+  document.querySelectorAll('.mascot-react').forEach(e => e.remove());
+  // 새 리액션 말풍선
+  const react = document.createElement('div');
+  react.className = 'mascot-react';
+  mascotMsgIdx = (mascotMsgIdx + 1) % MASCOT_MSGS.length;
+  react.textContent = MASCOT_MSGS[mascotMsgIdx];
+  document.getElementById('mascot-wrap').appendChild(react);
+  // 이미지 또는 fallback SVG 흔들기
+  const img = document.getElementById('mascot-img');
+  const fb  = document.getElementById('mascot-fallback');
+  const target = img.style.display !== 'none' ? img : fb;
+  target.style.transition = 'transform .12s';
+  target.style.transform = 'scale(1.25) rotate(-8deg)';
+  setTimeout(() => { target.style.transform = 'scale(1.1) rotate(8deg)'; }, 120);
+  setTimeout(() => { target.style.transform = ''; }, 260);
+  // 2.5초 후 리액션 제거
+  mascotTimer = setTimeout(() => react.remove(), 2500);
+  // 메인 말풍선도 업데이트
+  document.getElementById('mascot-bubble').textContent = MASCOT_MSGS[mascotMsgIdx];
+}
+// 5초마다 말풍선 자동 변경
+setInterval(() => {
+  mascotMsgIdx = (mascotMsgIdx + 1) % MASCOT_MSGS.length;
+  const el = document.getElementById('mascot-bubble');
+  if (el) { el.style.opacity='0'; setTimeout(()=>{el.textContent=MASCOT_MSGS[mascotMsgIdx];el.style.opacity='1';},300); }
+}, 5000);
 
 // ── 앱 초기화 ─────────────────────────────────────────────────────────────────
 function init() {
